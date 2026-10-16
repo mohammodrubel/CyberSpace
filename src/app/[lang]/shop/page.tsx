@@ -1,0 +1,36 @@
+import Link from "next/link";
+import type { Metadata } from "next";
+import { Suspense } from "react";
+import { notFound } from "next/navigation";
+import ShopClient from "@/components/ShopClient";
+import { getDict, isLocale } from "@/lib/i18n";
+import { pageMeta } from "@/lib/seo";
+
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  if (!isLocale(lang)) return {};
+  const t = getDict(lang);
+  return pageMeta(lang, "/shop", t.shop.title, t.shop.subtitle);
+}
+
+export default async function ShopPage({ params }: { params: Promise<{ lang: string }> }) {
+  const { lang } = await params;
+  if (!isLocale(lang)) notFound();
+  const t = getDict(lang);
+  return (
+    <>
+      <section className="pagehero">
+        <div className="container">
+          <nav className="crumbs crumbs--light" aria-label="Breadcrumb">
+            <Link href={`/${lang}`}>{t.nav.home}</Link><span>/</span><span>{t.shop.title}</span>
+          </nav>
+          <h1>{t.shop.title}</h1>
+          <p>{t.shop.subtitle}</p>
+        </div>
+      </section>
+      <Suspense fallback={<p className="container muted section">{t.common.loading}</p>}>
+        <ShopClient />
+      </Suspense>
+    </>
+  );
+}
