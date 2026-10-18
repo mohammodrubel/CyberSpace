@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import ShopClient from "@/components/ShopClient";
 import { getDict, isLocale } from "@/lib/i18n";
 import { pageMeta } from "@/lib/seo";
+import { FadeDown, FadeUp } from "@/components/Motion";
 
 export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
   const { lang } = await params;
@@ -24,8 +25,8 @@ export default async function ShopPage({ params }: { params: Promise<{ lang: str
           <nav className="crumbs crumbs--light" aria-label="Breadcrumb">
             <Link href={`/${lang}`}>{t.nav.home}</Link><span>/</span><span>{t.shop.title}</span>
           </nav>
-          <h1>{t.shop.title}</h1>
-          <p>{t.shop.subtitle}</p>
+          <FadeDown><h1>{t.shop.title}</h1></FadeDown>
+          <FadeUp delay={0.06}><p>{t.shop.subtitle}</p></FadeUp>
         </div>
       </section>
       <Suspense fallback={<p className="container muted section">{t.common.loading}</p>}>

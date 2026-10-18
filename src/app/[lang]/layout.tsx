@@ -1,4 +1,3 @@
-import "../globals.css";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import ContactModal from "@/components/ContactModal";
@@ -29,15 +28,11 @@ export default async function LangLayout({ children, params }: { children: React
   const { lang } = await params;
   if (!isLocale(lang)) notFound();
   return (
-    <html lang={lang}>
-      <body>
-        <StoreProvider>
-          <Header />
-          <main id="main">{children}</main>
-          <Footer lang={lang} />
-          <ContactModal />
-        </StoreProvider>
-      </body>
-    </html>
+    <StoreProvider>
+      <Header />
+      <main id="main">{children}</main>
+      <Footer lang={lang} />
+      <ContactModal />
+    </StoreProvider>
   );
 }

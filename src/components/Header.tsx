@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { LOCALES, LOCALE_LABEL, type Locale } from "@/lib/i18n";
 import { useLang } from "@/lib/useLang";
 import { useAppSelector } from "@/store";
@@ -12,6 +13,8 @@ const NAV = [
   ["home", ""], ["about", "/about"], ["products", "/shop"], ["solutions", "/solutions"], ["services", "/services"],
   ["partners", "/partners"], ["news", "/news"], ["careers", "/careers"], ["contact", "/contact"],
 ] as const;
+
+const EASE = [0.25, 0.1, 0.25, 1] as const;
 
 export default function Header() {
   const { lang, t } = useLang();
@@ -23,40 +26,143 @@ export default function Header() {
   const rest = pathname.replace(/^\/[^/]+/, "") || "";
   const isActive = (href: string) => (href === "" ? rest === "" : rest.startsWith(href));
   const swap = (l: Locale) => `/${l}${rest}`;
+  const close = () => setOpen(false);
+
+  // Close on Escape
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  // Body scroll lock
+  useEffect(() => {
+    document.body.style.overflow = open ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [open]);
 
   return (
     <header className="header">
       <a className="skip" href="#main">{t.common.skipToContent}</a>
       <div className="container header__bar">
-        <Link href={base} className="header__logo" onClick={() => setOpen(false)}><Logo /></Link>
+        <Link href={base} className="header__logo" onClick={close}><Logo /></Link>
 
-        <nav className={`nav${open ? " nav--open" : ""}`} aria-label="Main">
+        {/* Desktop nav — hidden below 1040 px */}
+        <nav className="nav" aria-label="Main navigation">
           {NAV.map(([key, href]) => (
-            <Link key={key} href={`${base}${href}`} className={`nav__link${isActive(href) ? " is-active" : ""}`}
-              aria-current={isActive(href) ? "page" : undefined} onClick={() => setOpen(false)}>
+            <Link key={key} href={`${base}${href}`}
+              className={`nav__link${isActive(href) ? " is-active" : ""}`}
+              aria-current={isActive(href) ? "page" : undefined}>
               {t.nav[key]}
             </Link>
           ))}
-          <Link href={`${base}/admin`} className={`nav__link nav__admin${isActive("/admin") ? " is-active" : ""}`} onClick={() => setOpen(false)}>
-            {t.nav.admin}{newCount > 0 && <span className="badge" aria-label={`${newCount} new`}>{newCount}</span>}
+          <Link href={`${base}/admin`}
+            className={`nav__link nav__admin${isActive("/admin") ? " is-active" : ""}`}>
+            {t.nav.admin}
+            {newCount > 0 && <span className="badge" aria-label={`${newCount} new`}>{newCount}</span>}
           </Link>
         </nav>
 
         <div className="header__tools">
-          <Link href={`${base}/shop`} className="iconbtn" aria-label={t.common.search}>
-            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" strokeWidth="2" /><path d="m16 16 5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+          {/* Search — hidden on small mobile via CSS */}
+          <Link href={`${base}/shop`} className="iconbtn header__search" aria-label={t.common.search}>
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+              <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" strokeWidth="2"/>
+              <path d="m16 16 5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
           </Link>
-          <div className="lang" role="group" aria-label={t.common.language}>
+
+          {/* Language switcher — desktop header */}
+          <div className="lang header__lang" role="group" aria-label={t.common.language}>
             {LOCALES.map((l) => (
-              <Link key={l} href={swap(l)} hrefLang={l} className={`lang__btn${l === lang ? " is-active" : ""}`}
-                aria-current={l === lang ? "true" : undefined}>{LOCALE_LABEL[l]}</Link>
+              <Link key={l} href={swap(l)} hrefLang={l}
+                className={`lang__btn${l === lang ? " is-active" : ""}`}
+                aria-current={l === lang ? "true" : undefined}>
+                {LOCALE_LABEL[l]}
+              </Link>
             ))}
           </div>
-          <button type="button" className="iconbtn menubtn" aria-expanded={open} aria-label="Menu" onClick={() => setOpen((v) => !v)}>
-            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d={open ? "M5 5l14 14M19 5 5 19" : "M4 7h16M4 12h16M4 17h16"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" /></svg>
+
+          {/* Hamburger — hidden ≥ 1040 px */}
+          <button type="button" className="iconbtn menubtn"
+            aria-expanded={open} aria-controls="mobile-nav"
+            aria-label={open ? "Close menu" : "Open menu"}
+            onClick={() => setOpen((v) => !v)}>
+            <span className="menubtn-icon" aria-hidden="true">
+              <span className="menubtn-bar"/>
+              <span className="menubtn-bar"/>
+              <span className="menubtn-bar"/>
+            </span>
           </button>
         </div>
       </div>
+
+      {/* Dark overlay — closes menu on click */}
+      <AnimatePresence>
+        {open && (
+          <motion.div key="nav-overlay" className="nav-overlay"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.22, ease: EASE }}
+            onClick={close} aria-hidden="true"/>
+        )}
+      </AnimatePresence>
+
+      {/* Mobile nav panel */}
+      <AnimatePresence>
+        {open && (
+          <motion.nav key="mobile-nav" id="mobile-nav" className="mobile-nav"
+            aria-label="Mobile navigation"
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.28, ease: EASE }}>
+
+            {/* Language row inside mobile menu */}
+            <motion.div className="mobile-nav__lang-row"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              transition={{ delay: 0.05, duration: 0.2 }}>
+              <span className="mobile-nav__lang-label">{t.common.language}</span>
+              <div className="lang" role="group" aria-label={t.common.language}>
+                {LOCALES.map((l) => (
+                  <Link key={l} href={swap(l)} hrefLang={l}
+                    className={`lang__btn${l === lang ? " is-active" : ""}`}
+                    aria-current={l === lang ? "true" : undefined}
+                    onClick={close}>
+                    {LOCALE_LABEL[l]}
+                  </Link>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* Nav links with stagger */}
+            {NAV.map(([key, href], i) => (
+              <motion.div key={key}
+                initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.07 + i * 0.034, duration: 0.22, ease: EASE }}>
+                <Link href={`${base}${href}`}
+                  className={`mobile-nav__link${isActive(href) ? " is-active" : ""}`}
+                  aria-current={isActive(href) ? "page" : undefined}
+                  onClick={close}>
+                  {t.nav[key]}
+                </Link>
+              </motion.div>
+            ))}
+
+            {/* Admin link */}
+            <motion.div
+              initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.07 + NAV.length * 0.034, duration: 0.22, ease: EASE }}>
+              <Link href={`${base}/admin`}
+                className={`mobile-nav__link mobile-nav__link--admin${isActive("/admin") ? " is-active" : ""}`}
+                onClick={close}>
+                {t.nav.admin}
+                {newCount > 0 && <span className="badge" aria-label={`${newCount} new`}>{newCount}</span>}
+              </Link>
+            </motion.div>
+          </motion.nav>
+        )}
+      </AnimatePresence>
     </header>
   );
 }

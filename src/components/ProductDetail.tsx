@@ -9,6 +9,7 @@ import { selectProductBySlug } from "@/store/catalogSlice";
 import { openInquiry } from "@/store/inquirySlice";
 import ProductCard, { PriceText, StockBadge } from "./ProductCard";
 import ProductImage from "./ProductImage";
+import { FadeLeft, FadeRight, FadeUp } from "./Motion";
 
 type Tab = "description" | "specifications" | "related";
 
@@ -42,8 +43,10 @@ export default function ProductDetail({ slug }: { slug: string }) {
       </nav>
 
       <div className="detail">
-        <div className="detail__media"><ProductImage category={product.category} label={product.name} /></div>
-        <div className="detail__info">
+        <FadeRight className="detail__media">
+          <ProductImage category={product.category} label={product.name} />
+        </FadeRight>
+        <FadeLeft delay={0.06} className="detail__info">
           <span className="pill">{product.brand}</span>
           <h1 className="detail__title">{product.name}</h1>
           <dl className="detail__ids">
@@ -60,31 +63,34 @@ export default function ProductDetail({ slug }: { slug: string }) {
           <button type="button" className="btn btn--primary btn--lg" onClick={() => dispatch(openInquiry(product.id))}>
             {t.common.contactMe}
           </button>
-        </div>
+        </FadeLeft>
       </div>
 
-      <div className="tabs" role="tablist">
-        {tabs.map((k) => (
-          <button key={k} role="tab" type="button" id={`tab-${k}`} aria-selected={tab === k} aria-controls={`panel-${k}`}
-            className={tab === k ? "is-active" : ""} onClick={() => setTab(k)}>
-            {t.product[k]}
-          </button>
-        ))}
-      </div>
-      <div className="tabpanel" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
-        {tab === "description" && <p className="prose">{describeProduct(product, lang)}</p>}
-        {tab === "specifications" && (
-          <div className="tablewrap">
-            <table className="spec">
-              <tbody>{product.specs.map(([k, v]) => <tr key={k}><th scope="row">{k}</th><td>{v}</td></tr>)}</tbody>
-            </table>
-          </div>
-        )}
-        {tab === "related" && (
-          related.length ? <div className="pgrid">{related.map((p) => <ProductCard key={p.id} product={p} />)}</div>
-            : <p className="muted">—</p>
-        )}
-      </div>
+      <FadeUp>
+        <div className="tabs" role="tablist">
+          {tabs.map((k) => (
+            <button key={k} role="tab" type="button" id={`tab-${k}`} aria-selected={tab === k} aria-controls={`panel-${k}`}
+              className={tab === k ? "is-active" : ""} onClick={() => setTab(k)}>
+              {t.product[k]}
+            </button>
+          ))}
+        </div>
+        <div className="tabpanel" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+          {tab === "description" && <p className="prose">{describeProduct(product, lang)}</p>}
+          {tab === "specifications" && (
+            <div className="tablewrap">
+              <table className="spec">
+                <tbody>{product.specs.map(([k, v]) => <tr key={k}><th scope="row">{k}</th><td>{v}</td></tr>)}</tbody>
+              </table>
+            </div>
+          )}
+          {tab === "related" && (
+            related.length
+              ? <div className="pgrid">{related.map((p) => <ProductCard key={p.id} product={p} />)}</div>
+              : <p className="muted">—</p>
+          )}
+        </div>
+      </FadeUp>
     </div>
   );
 }

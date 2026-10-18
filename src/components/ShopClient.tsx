@@ -10,6 +10,7 @@ import {
   toggleBrand, type SortKey,
 } from "@/store/catalogSlice";
 import ProductCard from "./ProductCard";
+import { FadeUp } from "./Motion";
 
 export default function ShopClient() {
   const { lang, t } = useLang();
@@ -48,14 +49,24 @@ export default function ShopClient() {
     <div className="shop">
       <form className="searchbar container" role="search" onSubmit={(e) => e.preventDefault()}>
         <label className="sr" htmlFor="shop-q">{t.common.search}</label>
-        <input id="shop-q" type="search" value={f.query} placeholder={t.shop.searchPlaceholder}
-          onChange={(e) => dispatch(setQuery(e.target.value))} />
+        <input
+          id="shop-q"
+          type="search"
+          value={f.query}
+          placeholder={t.shop.searchPlaceholder}
+          onChange={(e) => dispatch(setQuery(e.target.value))}
+        />
         <button type="submit" className="btn btn--primary">{t.common.search}</button>
       </form>
 
       <div className="container shop__layout">
-        <button type="button" className="btn btn--ghost filters-toggle" aria-expanded={filtersOpen} aria-controls="filters"
-          onClick={() => setFiltersOpen((v) => !v)}>
+        <button
+          type="button"
+          className="btn btn--ghost filters-toggle"
+          aria-expanded={filtersOpen}
+          aria-controls="filters"
+          onClick={() => setFiltersOpen((v) => !v)}
+        >
           {t.shop.categories} / {t.shop.brands}
         </button>
 
@@ -64,13 +75,21 @@ export default function ShopClient() {
             <h2 className="fgroup__h">{t.shop.categories}</h2>
             <ul className="flist">
               <li>
-                <button type="button" className={`flink${f.category === null ? " is-active" : ""}`} onClick={() => dispatch(setCategory(null))}>
+                <button
+                  type="button"
+                  className={`flink${f.category === null ? " is-active" : ""}`}
+                  onClick={() => dispatch(setCategory(null))}
+                >
                   <span>{t.common.all}</span><span className="count">{f.items.length}</span>
                 </button>
               </li>
               {CATEGORIES.map((c) => (
                 <li key={c.id}>
-                  <button type="button" className={`flink${f.category === c.id ? " is-active" : ""}`} onClick={() => dispatch(setCategory(c.id))}>
+                  <button
+                    type="button"
+                    className={`flink${f.category === c.id ? " is-active" : ""}`}
+                    onClick={() => dispatch(setCategory(c.id))}
+                  >
                     <span>{c.name[lang]}</span><span className="count">{catCounts.get(c.id) ?? 0}</span>
                   </button>
                 </li>
@@ -130,10 +149,22 @@ export default function ShopClient() {
                 {hasPrices && <option value="priceDesc">{t.shop.sortPriceDesc}</option>}
               </select>
               <div className="seg" role="group">
-                <button type="button" className={f.view === "grid" ? "is-active" : ""} aria-pressed={f.view === "grid"} aria-label={t.shop.gridView} onClick={() => dispatch(setView("grid"))}>
+                <button
+                  type="button"
+                  className={f.view === "grid" ? "is-active" : ""}
+                  aria-pressed={f.view === "grid"}
+                  aria-label={t.shop.gridView}
+                  onClick={() => dispatch(setView("grid"))}
+                >
                   <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M3 3h5v5H3zM12 3h5v5h-5zM3 12h5v5H3zM12 12h5v5h-5z" fill="currentColor" /></svg>
                 </button>
-                <button type="button" className={f.view === "list" ? "is-active" : ""} aria-pressed={f.view === "list"} aria-label={t.shop.listView} onClick={() => dispatch(setView("list"))}>
+                <button
+                  type="button"
+                  className={f.view === "list" ? "is-active" : ""}
+                  aria-pressed={f.view === "list"}
+                  aria-label={t.shop.listView}
+                  onClick={() => dispatch(setView("list"))}
+                >
                   <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M3 4h14v3H3zM3 9h14v3H3zM3 14h14v3H3z" fill="currentColor" /></svg>
                 </button>
               </div>
@@ -144,12 +175,20 @@ export default function ShopClient() {
             <p className="muted">{t.common.loading}</p>
           ) : filtered.length === 0 ? (
             <div className="empty">
-              <p>{t.shop.noResults}</p>
+              <svg viewBox="0 0 48 48" width="48" height="48" fill="none" aria-hidden="true">
+                <circle cx="24" cy="24" r="20" stroke="var(--border)" strokeWidth="2"/>
+                <path d="M16 24h16M24 16v16" stroke="var(--border)" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              <p className="muted">{t.shop.noResults}</p>
               <button type="button" className="btn btn--primary" onClick={() => dispatch(resetFilters())}>{t.shop.reset}</button>
             </div>
           ) : (
             <div className={`pgrid${f.view === "list" ? " pgrid--list" : ""}`}>
-              {filtered.map((p) => <ProductCard key={p.id} product={p} view={f.view} />)}
+              {filtered.map((p, i) => (
+                <FadeUp key={p.id} delay={Math.min((i % 4) * 0.055, 0.165)}>
+                  <ProductCard product={p} view={f.view} />
+                </FadeUp>
+              ))}
             </div>
           )}
         </section>
