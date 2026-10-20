@@ -6,7 +6,6 @@ import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { LOCALES, LOCALE_LABEL, type Locale } from "@/lib/i18n";
 import { useLang } from "@/lib/useLang";
-import { useAppSelector } from "@/store";
 import Logo from "./Logo";
 
 const NAV = [
@@ -20,8 +19,6 @@ export default function Header() {
   const { lang, t } = useLang();
   const pathname = usePathname() || `/${lang}`;
   const [open, setOpen] = useState(false);
-  const newCount = useAppSelector((s) => s.inquiry.items.filter((i) => i.status === "new").length);
-
   const base = `/${lang}`;
   const rest = pathname.replace(/^\/[^/]+/, "") || "";
   const isActive = (href: string) => (href === "" ? rest === "" : rest.startsWith(href));
@@ -57,10 +54,9 @@ export default function Header() {
               {t.nav[key]}
             </Link>
           ))}
-          <Link href={`${base}/admin`}
-            className={`nav__link nav__admin${isActive("/admin") ? " is-active" : ""}`}>
-            {t.nav.admin}
-            {newCount > 0 && <span className="badge" aria-label={`${newCount} new`}>{newCount}</span>}
+          <Link href={`${base}/login`}
+            className={`nav__link nav__login${isActive("/login") || isActive("/dashboard") ? " is-active" : ""}`}>
+            {t.nav.login}
           </Link>
         </nav>
 
@@ -149,15 +145,13 @@ export default function Header() {
               </motion.div>
             ))}
 
-            {/* Admin link */}
             <motion.div
               initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.07 + NAV.length * 0.034, duration: 0.22, ease: EASE }}>
-              <Link href={`${base}/admin`}
-                className={`mobile-nav__link mobile-nav__link--admin${isActive("/admin") ? " is-active" : ""}`}
+              <Link href={`${base}/login`}
+                className={`mobile-nav__link${isActive("/login") || isActive("/dashboard") ? " is-active" : ""}`}
                 onClick={close}>
-                {t.nav.admin}
-                {newCount > 0 && <span className="badge" aria-label={`${newCount} new`}>{newCount}</span>}
+                {t.nav.login}
               </Link>
             </motion.div>
           </motion.nav>

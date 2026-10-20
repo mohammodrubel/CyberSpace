@@ -1,11 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import ContactModal from "@/components/ContactModal";
-import Footer from "@/components/Footer";
-import Header from "@/components/Header";
 import { LOCALES, getDict, isLocale } from "@/lib/i18n";
 import { SITE_URL, pageMeta } from "@/lib/seo";
-import StoreProvider from "@/store/StoreProvider";
+import StoreProvider from "@/redux/StoreProvider";
 
 export const dynamicParams = false;
 
@@ -24,15 +21,14 @@ export async function generateMetadata({ params }: { params: Promise<{ lang: str
   };
 }
 
-export default async function LangLayout({ children, params }: { children: React.ReactNode; params: Promise<{ lang: string }> }) {
+export default async function LangLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ lang: string }>;
+}) {
   const { lang } = await params;
   if (!isLocale(lang)) notFound();
-  return (
-    <StoreProvider>
-      <Header />
-      <main id="main">{children}</main>
-      <Footer lang={lang} />
-      <ContactModal />
-    </StoreProvider>
-  );
+  return <StoreProvider>{children}</StoreProvider>;
 }

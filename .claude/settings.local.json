@@ -1,7 +1,28 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(Stop-Process *)"
+      "PowerShell(Stop-Process *)",
+      "Bash(Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue)",
+      "Bash(npm run *)",
+      "Bash(npx next *)",
+      "Bash(ping -n 6 127.0.0.1)",
+      "Bash(powershell -Command \"Get-Content 'C:\\\\Users\\\\mdrub\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-mdrub-Desktop-cyberspace-web\\\\e2fdbb76-c299-4edf-aea3-1522c30fe33c\\\\tasks\\\\bq4r69ebk.output'\")",
+      "Bash(powershell *)",
+      "PowerShell(Get-Process *)",
+      "Bash(npx tsc *)",
+      "Bash(netstat -ano)",
+      "Bash(findstr :3000)",
+      "Bash(Get-Process -Id 30792 -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object Id, ProcessName, Path)",
+      "Bash(npm install *)",
+      "Bash(npm uninstall *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\mdrub\\\\Desktop\\\\new project\\\\cyberspace-web\" -Recurse -Filter \"*news*\" -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object FullName)",
+      "Bash(dir C:\\\\Users\\\\mdrub\\\\Desktop\\\\new project\\\\cyberspace-web\\\\src\\\\app\\\\[lang]\\\\news\\\\[id] *)",
+      "Bash(git add *)",
+      "Bash(git rm *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }

@@ -2,48 +2,112 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { BRANDS, CATEGORIES, type CategoryId } from "@/data/catalog";
+import { CATEGORIES, type CategoryId } from "@/data/catalog";
 import { useLang } from "@/lib/useLang";
-import { useAppDispatch, useAppSelector } from "@/store";
-import {
-  resetFilters, selectFilteredProducts, setCategory, setPriceMax, setPriceMin, setQuery, setSort, setView,
-  toggleBrand, type SortKey,
-} from "@/store/catalogSlice";
+import { useGetProductsQuery } from "@/redux/fetchers/product/productApi";
+import { useGetSettingsQuery } from "@/redux/fetchers/settings/settingsApi";
+import { useAppDispatch } from "@/redux/store";
+import { openInquiry } from "@/redux/inquirySlice";
 import ProductCard from "./ProductCard";
 import { FadeUp } from "./Motion";
+
+type SortKey = "relevance" | "nameAsc" | "priceAsc" | "priceDesc";
 
 export default function ShopClient() {
   const { lang, t } = useLang();
   const dispatch = useAppDispatch();
   const params = useSearchParams();
-  const f = useAppSelector((s) => s.catalog);
-  const filtered = useAppSelector(selectFilteredProducts);
+
+  const { data: rawProducts = [], isLoading, isError, refetch } = useGetProductsQuery();
+  const { data: settings = { showPrices: true, showStock: true } } = useGetSettingsQuery();
+
+  const [category, setCategory] = useState<CategoryId | null>(null);
+  const [brands, setBrands] = useState<string[]>([]);
+  const [query, setQuery] = useState("");
+  const [priceMin, setPriceMin] = useState<number | null>(null);
+  const [priceMax, setPriceMax] = useState<number | null>(null);
+  const [sort, setSort] = useState<SortKey>("relevance");
+  const [view, setView] = useState<"grid" | "list">("grid");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [allBrands, setAllBrands] = useState(false);
+  const [showAllBrands, setShowAllBrands] = useState(false);
 
   useEffect(() => {
+    if (rawProducts.length === 0) return;
     const c = params.get("category");
-    if (c && CATEGORIES.some((x) => x.id === c)) dispatch(setCategory(c as CategoryId));
+    if (c && CATEGORIES.some((x) => x.id === c)) setCategory(c as CategoryId);
     const q = params.get("q");
-    if (q) dispatch(setQuery(q));
-  }, [params, dispatch]);
+    if (q) setQuery(q);
+  }, [params, rawProducts.length]);
 
-  const hasPrices = f.items.some((p) => p.price !== null);
+  const products = useMemo(() =>
+    rawProducts.map((p) => ({
+      ...p,
+      price: settings.showPrices ? p.price : null,
+      currency: settings.showPrices ? p.currency : null,
+      stock: settings.showStock ? p.stock : null,
+    })),
+    [rawProducts, settings]
+  );
+
+  const filtered = useMemo(() => {
+    let result = products;
+    if (category) result = result.filter((p) => p.category === category);
+    if (brands.length) result = result.filter((p) => brands.includes(p.brand));
+    if (query) {
+      const q = query.toLowerCase();
+      result = result.filter((p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.sku.toLowerCase().includes(q) ||
+        Object.values(p.names ?? {}).some((n) => n.toLowerCase().includes(q))
+      );
+    }
+    if (priceMin !== null) result = result.filter((p) => p.price !== null && p.price >= priceMin);
+    if (priceMax !== null) result = result.filter((p) => p.price !== null && p.price <= priceMax);
+
+    switch (sort) {
+      case "nameAsc": return [...result].sort((a, b) => a.name.localeCompare(b.name));
+      case "priceAsc": return [...result].sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
+      case "priceDesc": return [...result].sort((a, b) => (b.price ?? -Infinity) - (a.price ?? -Infinity));
+      default: return result;
+    }
+  }, [products, category, brands, query, priceMin, priceMax, sort]);
 
   const catCounts = useMemo(() => {
     const m = new Map<string, number>();
-    f.items.forEach((p) => m.set(p.category, (m.get(p.category) ?? 0) + 1));
+    products.forEach((p) => m.set(p.category, (m.get(p.category) ?? 0) + 1));
     return m;
-  }, [f.items]);
+  }, [products]);
+
   const brandCounts = useMemo(() => {
     const m = new Map<string, number>();
-    f.items.forEach((p) => m.set(p.brand, (m.get(p.brand) ?? 0) + 1));
+    products.forEach((p) => { if (p.brand) m.set(p.brand, (m.get(p.brand) ?? 0) + 1); });
     return m;
-  }, [f.items]);
+  }, [products]);
 
-  const brands = BRANDS.filter((b) => brandCounts.has(b));
-  const shownBrands = allBrands ? brands : brands.slice(0, 6);
+  const allBrandNames = useMemo(() => [...brandCounts.keys()].sort((a, b) => a.localeCompare(b)), [brandCounts]);
+  const shownBrands = showAllBrands ? allBrandNames : allBrandNames.slice(0, 6);
+  const hasPrices = products.some((p) => p.price !== null);
   const num = (v: string) => (v === "" ? null : Math.max(0, Number(v)));
+
+  function resetFilters() {
+    setCategory(null); setBrands([]); setQuery(""); setPriceMin(null); setPriceMax(null); setSort("relevance");
+  }
+  function toggleBrand(b: string) {
+    setBrands((prev) => prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b]);
+  }
+
+  if (isError) {
+    return (
+      <div className="container section">
+        <div className="empty">
+          <p className="muted">{t.common.error}</p>
+          <button type="button" className="btn btn--primary" onClick={() => refetch()}>
+            {t.common.retry}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="shop">
@@ -52,9 +116,9 @@ export default function ShopClient() {
         <input
           id="shop-q"
           type="search"
-          value={f.query}
+          value={query}
           placeholder={t.shop.searchPlaceholder}
-          onChange={(e) => dispatch(setQuery(e.target.value))}
+          onChange={(e) => setQuery(e.target.value)}
         />
         <button type="submit" className="btn btn--primary">{t.common.search}</button>
       </form>
@@ -77,18 +141,18 @@ export default function ShopClient() {
               <li>
                 <button
                   type="button"
-                  className={`flink${f.category === null ? " is-active" : ""}`}
-                  onClick={() => dispatch(setCategory(null))}
+                  className={`flink${category === null ? " is-active" : ""}`}
+                  onClick={() => setCategory(null)}
                 >
-                  <span>{t.common.all}</span><span className="count">{f.items.length}</span>
+                  <span>{t.common.all}</span><span className="count">{products.length}</span>
                 </button>
               </li>
               {CATEGORIES.map((c) => (
                 <li key={c.id}>
                   <button
                     type="button"
-                    className={`flink${f.category === c.id ? " is-active" : ""}`}
-                    onClick={() => dispatch(setCategory(c.id))}
+                    className={`flink${category === c.id ? " is-active" : ""}`}
+                    onClick={() => setCategory(c.id)}
                   >
                     <span>{c.name[lang]}</span><span className="count">{catCounts.get(c.id) ?? 0}</span>
                   </button>
@@ -97,24 +161,26 @@ export default function ShopClient() {
             </ul>
           </section>
 
-          <section className="fgroup">
-            <h2 className="fgroup__h">{t.shop.brands}</h2>
-            <ul className="flist">
-              {shownBrands.map((b) => (
-                <li key={b}>
-                  <label className="check">
-                    <input type="checkbox" checked={f.brands.includes(b)} onChange={() => dispatch(toggleBrand(b))} />
-                    <span>{b}</span><span className="count">{brandCounts.get(b)}</span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-            {brands.length > 6 && (
-              <button type="button" className="linkbtn" onClick={() => setAllBrands((v) => !v)}>
-                {allBrands ? t.shop.showLess : t.shop.showMore}
-              </button>
-            )}
-          </section>
+          {allBrandNames.length > 0 && (
+            <section className="fgroup">
+              <h2 className="fgroup__h">{t.shop.brands}</h2>
+              <ul className="flist">
+                {shownBrands.map((b) => (
+                  <li key={b}>
+                    <label className="check">
+                      <input type="checkbox" checked={brands.includes(b)} onChange={() => toggleBrand(b)} />
+                      <span>{b}</span><span className="count">{brandCounts.get(b)}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+              {allBrandNames.length > 6 && (
+                <button type="button" className="linkbtn" onClick={() => setShowAllBrands((v) => !v)}>
+                  {showAllBrands ? t.shop.showLess : t.shop.showMore}
+                </button>
+              )}
+            </section>
+          )}
 
           {hasPrices && (
             <section className="fgroup">
@@ -122,27 +188,27 @@ export default function ShopClient() {
               <div className="range">
                 <div>
                   <label htmlFor="pmin">{t.shop.min}</label>
-                  <input id="pmin" type="number" min={0} inputMode="numeric" value={f.priceMin ?? ""} onChange={(e) => dispatch(setPriceMin(num(e.target.value)))} />
+                  <input id="pmin" type="number" min={0} inputMode="numeric" value={priceMin ?? ""} onChange={(e) => setPriceMin(num(e.target.value))} />
                 </div>
                 <div>
                   <label htmlFor="pmax">{t.shop.max}</label>
-                  <input id="pmax" type="number" min={0} inputMode="numeric" value={f.priceMax ?? ""} onChange={(e) => dispatch(setPriceMax(num(e.target.value)))} />
+                  <input id="pmax" type="number" min={0} inputMode="numeric" value={priceMax ?? ""} onChange={(e) => setPriceMax(num(e.target.value))} />
                 </div>
               </div>
             </section>
           )}
 
-          <button type="button" className="btn btn--ghost btn--block" onClick={() => dispatch(resetFilters())}>{t.shop.reset}</button>
+          <button type="button" className="btn btn--ghost btn--block" onClick={resetFilters}>{t.shop.reset}</button>
         </aside>
 
         <section className="results" aria-live="polite">
           <div className="toolbar">
             <p className="toolbar__count">
-              {t.shop.showing} {filtered.length} {t.shop.of} {f.items.length} {t.shop.products}
+              {t.shop.showing} {filtered.length} {t.shop.of} {products.length} {t.shop.products}
             </p>
             <div className="toolbar__ctrl">
               <label htmlFor="sort">{t.shop.sortBy}</label>
-              <select id="sort" value={f.sort} onChange={(e) => dispatch(setSort(e.target.value as SortKey))}>
+              <select id="sort" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
                 <option value="relevance">{t.shop.sortRelevance}</option>
                 <option value="nameAsc">{t.shop.sortNameAsc}</option>
                 {hasPrices && <option value="priceAsc">{t.shop.sortPriceAsc}</option>}
@@ -151,19 +217,19 @@ export default function ShopClient() {
               <div className="seg" role="group">
                 <button
                   type="button"
-                  className={f.view === "grid" ? "is-active" : ""}
-                  aria-pressed={f.view === "grid"}
+                  className={view === "grid" ? "is-active" : ""}
+                  aria-pressed={view === "grid"}
                   aria-label={t.shop.gridView}
-                  onClick={() => dispatch(setView("grid"))}
+                  onClick={() => setView("grid")}
                 >
                   <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M3 3h5v5H3zM12 3h5v5h-5zM3 12h5v5H3zM12 12h5v5h-5z" fill="currentColor" /></svg>
                 </button>
                 <button
                   type="button"
-                  className={f.view === "list" ? "is-active" : ""}
-                  aria-pressed={f.view === "list"}
+                  className={view === "list" ? "is-active" : ""}
+                  aria-pressed={view === "list"}
                   aria-label={t.shop.listView}
-                  onClick={() => dispatch(setView("list"))}
+                  onClick={() => setView("list")}
                 >
                   <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M3 4h14v3H3zM3 9h14v3H3zM3 14h14v3H3z" fill="currentColor" /></svg>
                 </button>
@@ -171,7 +237,7 @@ export default function ShopClient() {
             </div>
           </div>
 
-          {f.status === "loading" || f.status === "idle" ? (
+          {isLoading ? (
             <p className="muted">{t.common.loading}</p>
           ) : filtered.length === 0 ? (
             <div className="empty">
@@ -180,13 +246,13 @@ export default function ShopClient() {
                 <path d="M16 24h16M24 16v16" stroke="var(--border)" strokeWidth="2" strokeLinecap="round"/>
               </svg>
               <p className="muted">{t.shop.noResults}</p>
-              <button type="button" className="btn btn--primary" onClick={() => dispatch(resetFilters())}>{t.shop.reset}</button>
+              <button type="button" className="btn btn--primary" onClick={resetFilters}>{t.shop.reset}</button>
             </div>
           ) : (
-            <div className={`pgrid${f.view === "list" ? " pgrid--list" : ""}`}>
+            <div className={`pgrid${view === "list" ? " pgrid--list" : ""}`}>
               {filtered.map((p, i) => (
                 <FadeUp key={p.id} delay={Math.min((i % 4) * 0.055, 0.165)}>
-                  <ProductCard product={p} view={f.view} />
+                  <ProductCard product={p} view={view} />
                 </FadeUp>
               ))}
             </div>

@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { CATEGORIES, describeProduct } from "@/data/catalog";
+import { useMemo, useState } from "react";
+import { CATEGORIES, type CategoryId } from "@/data/catalog";
 import { useLang } from "@/lib/useLang";
-import { useAppDispatch, useAppSelector } from "@/store";
-import { selectProductBySlug } from "@/store/catalogSlice";
-import { openInquiry } from "@/store/inquirySlice";
+import { useAppDispatch } from "@/redux/store";
+import { openInquiry } from "@/redux/inquirySlice";
+import { useGetProductsQuery } from "@/redux/fetchers/product/productApi";
+import { useGetSettingsQuery } from "@/redux/fetchers/settings/settingsApi";
 import ProductCard, { PriceText, StockBadge } from "./ProductCard";
 import ProductImage from "./ProductImage";
 import { FadeLeft, FadeRight, FadeUp } from "./Motion";
@@ -16,39 +17,56 @@ type Tab = "description" | "specifications" | "related";
 export default function ProductDetail({ slug }: { slug: string }) {
   const { lang, t } = useLang();
   const dispatch = useAppDispatch();
-  const product = useAppSelector(selectProductBySlug(slug));
-  const status = useAppSelector((s) => s.catalog.status);
-  const items = useAppSelector((s) => s.catalog.items);
+
+  const { data: allProducts = [], isLoading } = useGetProductsQuery();
+  const { data: settings = { showPrices: true, showStock: true } } = useGetSettingsQuery();
+
   const [tab, setTab] = useState<Tab>("description");
+
+  const rawProduct = allProducts.find((p) => p.id === slug) ?? null;
+
+  const product = useMemo(() => {
+    if (!rawProduct) return null;
+    return {
+      ...rawProduct,
+      price: settings.showPrices ? rawProduct.price : null,
+      currency: settings.showPrices ? rawProduct.currency : null,
+      stock: settings.showStock ? rawProduct.stock : null,
+    };
+  }, [rawProduct, settings]);
 
   if (!product) {
     return (
       <div className="container section">
-        <p className="muted">{status === "ready" ? t.product.notFound : t.common.loading}</p>
+        <p className="muted">{isLoading ? t.common.loading : t.product.notFound}</p>
         <Link href={`/${lang}/shop`} className="btn btn--ghost">{t.product.back}</Link>
       </div>
     );
   }
 
-  const cat = CATEGORIES.find((c) => c.id === product.category)!;
-  const related = items.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
+  const cat = CATEGORIES.find((c) => c.id === product.category);
+  const catName = cat?.name[lang] ?? product.category;
+  const related = allProducts.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
   const tabs: Tab[] = ["description", "specifications", "related"];
+
+  const displayName = product.names?.[lang] ?? product.names?.["en"] ?? product.name;
+  const description = product.descriptions?.[lang] ?? product.descriptions?.["en"] ?? "";
 
   return (
     <div className="container section">
       <nav className="crumbs" aria-label="Breadcrumb">
         <Link href={`/${lang}`}>{t.nav.home}</Link><span>/</span>
         <Link href={`/${lang}/shop`}>{t.nav.shop}</Link><span>/</span>
-        <Link href={`/${lang}/shop?category=${cat.id}`}>{cat.name[lang]}</Link>
+        <Link href={`/${lang}/shop?category=${product.category}`}>{catName}</Link>
       </nav>
 
       <div className="detail">
         <FadeRight className="detail__media">
-          <ProductImage category={product.category} label={product.name} />
+          <ProductImage category={product.category as CategoryId} label={displayName} />
         </FadeRight>
         <FadeLeft delay={0.06} className="detail__info">
           <span className="pill">{product.brand}</span>
-          <h1 className="detail__title">{product.name}</h1>
+          <h1 className="detail__title">{displayName}</h1>
           <dl className="detail__ids">
             <div><dt>{t.common.partNo}</dt><dd>{product.sku}</dd></div>
             <div><dt>{t.product.sku}</dt><dd>{product.id}</dd></div>
@@ -76,13 +94,21 @@ export default function ProductDetail({ slug }: { slug: string }) {
           ))}
         </div>
         <div className="tabpanel" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
-          {tab === "description" && <p className="prose">{describeProduct(product, lang)}</p>}
+          {tab === "description" && (
+            description
+              ? <p className="prose">{description}</p>
+              : <p className="muted">{t.product.contactUs}</p>
+          )}
           {tab === "specifications" && (
-            <div className="tablewrap">
-              <table className="spec">
-                <tbody>{product.specs.map(([k, v]) => <tr key={k}><th scope="row">{k}</th><td>{v}</td></tr>)}</tbody>
-              </table>
-            </div>
+            product.specs.length > 0 ? (
+              <div className="tablewrap">
+                <table className="spec">
+                  <tbody>{product.specs.map(([k, v]) => <tr key={k}><th scope="row">{k}</th><td>{v}</td></tr>)}</tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="muted">{t.product.contactUs}</p>
+            )
           )}
           {tab === "related" && (
             related.length

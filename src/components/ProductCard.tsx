@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import type { PublicProduct } from "@/data/catalog";
+import type { PublicProduct, CategoryId } from "@/data/catalog";
 import { formatPrice } from "@/lib/format";
 import { useLang } from "@/lib/useLang";
-import { useAppDispatch } from "@/store";
-import { openInquiry } from "@/store/inquirySlice";
+import { useAppDispatch } from "@/redux/store";
+import { openInquiry } from "@/redux/inquirySlice";
 import ProductImage from "./ProductImage";
 
 export function StockBadge({ stock }: { stock: number | null }) {
@@ -26,15 +26,16 @@ export default function ProductCard({ product, view = "grid" }: { product: Publi
   const { lang, t } = useLang();
   const dispatch = useAppDispatch();
   const href = `/${lang}/shop/${product.id}`;
+  const displayName = product.names?.[lang] ?? product.names?.["en"] ?? product.name;
 
   return (
     <article className={`pcard${view === "list" ? " pcard--list" : ""}`}>
       <Link href={href} className="pcard__media" tabIndex={-1} aria-hidden="true">
-        <ProductImage category={product.category} label={product.name} />
+        <ProductImage category={product.category as CategoryId} label={displayName} />
         <span className="pcard__brand">{product.brand}</span>
       </Link>
       <div className="pcard__body">
-        <h3 className="pcard__name"><Link href={href}>{product.name}</Link></h3>
+        <h3 className="pcard__name"><Link href={href}>{displayName}</Link></h3>
         <p className="pcard__sku">{t.common.partNo}: {product.sku}</p>
         <div className="pcard__meta">
           <StockBadge stock={product.stock} />
